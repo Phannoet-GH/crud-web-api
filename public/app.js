@@ -30,9 +30,9 @@ const clearSearchButton = document.getElementById('clear-search-button');
 let currentProduct = null;
 document.getElementById('image-file-button').addEventListener('click', (e) => {
     e.preventDefault();
+    imageFileInput.value = '';
     imageFileInput.click();
 });
-
 
 imageFileInput.addEventListener('change', handleImageFileChange);
 imageInput.addEventListener('input', handleImageUrlChange);

@@ -62,14 +62,27 @@ class ProductController
             Response::json(['message' => 'Product name already exists'], 422);
         }
 
+        $existingImage = $existing['image'] ?? null;
         $this->service->update($id, $data);
+
+        $newImage = $data['image'] ?? null;
+        if ($existingImage && $existingImage !== $newImage && $this->isLocalUploadedImage((string) $existingImage)) {
+            $this->deleteUploadedImage($existingImage);
+        }
+
         Response::json($this->service->get($id));
     }
 
     public function destroy($id)
     {
-        if ($this->service->get($id) === null) {
+        $existing = $this->service->get($id);
+        if ($existing === null) {
             Response::json(['message' => 'Product not found'], 404);
+        }
+
+        $existingImage = $existing['image'] ?? null;
+        if ($existingImage && $this->isLocalUploadedImage((string) $existingImage)) {
+            $this->deleteUploadedImage($existingImage);
         }
 
         $this->service->delete($id);
@@ -129,6 +142,19 @@ class ProductController
         }
 
         return 'uploads/' . $filename;
+    }
+
+    private function isLocalUploadedImage(string $imagePath): bool
+    {
+        return trim($imagePath) !== '' && strpos($imagePath, 'uploads/') === 0;
+    }
+
+    private function deleteUploadedImage(string $imagePath): void
+    {
+        $filePath = __DIR__ . '/../../public/' . ltrim($imagePath, '/');
+        if (is_file($filePath)) {
+            @unlink($filePath);
+        }
     }
 
     public function search()
