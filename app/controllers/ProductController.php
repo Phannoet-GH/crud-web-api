@@ -37,6 +37,10 @@ class ProductController
             Response::json(['message' => 'Product name is required'], 422);
         }
 
+        if ($this->service->existsByName($data['product_name'])) {
+            Response::json(['message' => 'Product name already exists'], 422);
+        }
+
         $id = $this->service->create($data);
         $product = $this->service->get($id);
         Response::json($product, 201);
@@ -49,8 +53,13 @@ class ProductController
             Response::json(['message' => 'Product name is required'], 422);
         }
 
-        if ($this->service->get($id) === null) {
+        $existing = $this->service->get($id);
+        if ($existing === null) {
             Response::json(['message' => 'Product not found'], 404);
+        }
+
+        if ($this->service->existsByName($data['product_name'], $id)) {
+            Response::json(['message' => 'Product name already exists'], 422);
         }
 
         $this->service->update($id, $data);

@@ -25,6 +25,11 @@ class ProductService
         return $this->product->find($id);
     }
 
+    public function existsByName(string $name, ?int $excludeId = null)
+    {
+        return $this->product->existsByName($name, $excludeId);
+    }
+
     public function create($data)
     {
         return $this->product->create($data);

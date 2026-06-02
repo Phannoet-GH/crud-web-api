@@ -29,6 +29,23 @@ class Product
         return $product === false ? null : $product;
     }
 
+    public function existsByName(string $name, ?int $excludeId = null)
+    {
+        $sql = 'SELECT product_id FROM products WHERE product_name = :name';
+        if ($excludeId !== null) {
+            $sql .= ' AND product_id != :exclude_id';
+        }
+
+        $statement = $this->pdo->prepare($sql);
+        $params = ['name' => trim($name)];
+        if ($excludeId !== null) {
+            $params['exclude_id'] = $excludeId;
+        }
+
+        $statement->execute($params);
+        return $statement->fetch(PDO::FETCH_ASSOC) !== false;
+    }
+
     public function create($data)
     {
         $statement = $this->pdo->prepare(

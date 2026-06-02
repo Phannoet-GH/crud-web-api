@@ -66,13 +66,19 @@ if (isApiRequest(currentPath())) {
                     <input id="product-category" type="number" min="0" step="1" placeholder="Category ID" />
                 </div>
                 <div>
-                    <label for="product-image-file">Upload Image</label>
-                    <input id="product-image-file" type="file" accept="image/*" />
-                    <small>Choose a local image file or enter an image URL below.</small>
+                    <label>Image</label>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button type="button" id="image-file-button" style="padding:12px 12px; cursor:pointer; border:1px solid #c3cee7; border-radius:8px; background:#f5f5f5; white-space:nowrap; font-family: Arial, sans-serif; font-size:1rem; color: #2d3a4b;">Choose File</button>
+                        <input id="product-image-file" type="file" accept="image/*" style="display:none;" />
+                        <input id="product-image" type="text" maxlength="100" placeholder="Image URL" style="flex:1;" />
+                    </div>
                 </div>
                 <div>
-                    <label for="product-image">Image URL</label>
-                    <input id="product-image" type="text" maxlength="100" placeholder="image.jpg or image URL" />
+                    <label>Image preview</label>
+                    <div id="product-image-preview-box" style="min-height:120px; border:1px solid #ccc; padding:8px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                        <img id="product-image-preview" alt="Image preview" style="max-width:100%; max-height:160px; display:none;" />
+                        <span id="product-image-preview-text" style="color:#666; font-size:.9rem;">No image selected.</span>
+                    </div>
                 </div>
                 <input type="hidden" id="product-image-existing" />
                 <div>

@@ -14,6 +14,8 @@ const ratingInput = document.getElementById('product-rating');
 const categoryInput = document.getElementById('product-category');
 const imageFileInput = document.getElementById('product-image-file');
 const imageInput = document.getElementById('product-image');
+const imagePreview = document.getElementById('product-image-preview');
+const imagePreviewText = document.getElementById('product-image-preview-text');
 const existingImageInput = document.getElementById('product-image-existing');
 const createDateInput = document.getElementById('product-create-date');
 const descriptionInput = document.getElementById('product-description');
@@ -26,12 +28,73 @@ const searchForm = document.getElementById('search-form');
 const searchQuery = document.getElementById('search-query');
 const clearSearchButton = document.getElementById('clear-search-button');
 let currentProduct = null;
+document.getElementById('image-file-button').addEventListener('click', (e) => {
+    e.preventDefault();
+    imageFileInput.click();
+});
+
+
+imageFileInput.addEventListener('change', handleImageFileChange);
+imageInput.addEventListener('input', handleImageUrlChange);
 
 function showStatus(message, success = true) {
     statusBox.textContent = message;
     statusBox.className = 'status ' + (success ? 'success' : 'error');
     statusBox.style.display = 'block';
     setTimeout(() => statusBox.style.display = 'none', 4500);
+}
+
+function updateImagePreview(source) {
+    if (!source) {
+        imagePreview.src = '';
+        imagePreview.style.display = 'none';
+        imagePreviewText.style.display = 'block';
+        return;
+    }
+
+    imagePreviewText.style.display = 'none';
+    imagePreview.style.display = 'block';
+    imagePreview.src = source;
+}
+
+imagePreview.onerror = () => {
+    imagePreview.style.display = 'none';
+    imagePreviewText.style.display = 'block';
+    imagePreviewText.textContent = 'Unable to load preview. Check the URL or file format.';
+};
+
+function handleImageFileChange() {
+    const file = imageFileInput.files[0];
+    if (file) {
+        imageInput.value = file.name;
+        const reader = new FileReader();
+        reader.onload = () => updateImagePreview(reader.result);
+        reader.readAsDataURL(file);
+        return;
+    }
+
+    imageInput.value = '';
+    updateImagePreview('');
+}
+
+function handleImageUrlChange() {
+    const urlValue = imageInput.value.trim();
+    if (urlValue && !imageFileInput.files.length) {
+        imagePreviewText.textContent = 'Loading preview...';
+        updateImagePreview(urlValue);
+        return;
+    }
+
+    if (imageFileInput.files.length > 0) {
+        handleImageFileChange();
+        return;
+    }
+
+    if (urlValue) {
+        updateImagePreview(urlValue);
+    } else {
+        updateImagePreview('');
+    }
 }
 
 function getRequestOptions(method, data) {
@@ -158,11 +221,13 @@ function resetForm() {
     categoryInput.value = '';
     imageFileInput.value = '';
     imageInput.value = '';
+    imagePreviewText.textContent = 'No image selected.';
     existingImageInput.value = '';
     createDateInput.value = '';
     descriptionInput.value = '';
     currentProduct = null;
     submitButton.textContent = 'Save product';
+    updateImagePreview('');
 }
 
 async function submitForm(event) {
@@ -200,6 +265,30 @@ async function submitForm(event) {
         return;
     }
 
+    if (productId && currentProduct) {
+        const currentCategory = currentProduct.category_id === null ? '' : String(currentProduct.category_id);
+        const currentImage = currentProduct.image || '';
+        const currentCreateDate = toInputDateTime(currentProduct.create_date) || '';
+        const newCategory = categoryInput.value.trim();
+        const newCreateDate = createDateInput.value || '';
+        const newImage = imageFile ? null : imageUrl;
+
+        const unchanged =
+            currentProduct.product_name === nameInput.value.trim() &&
+            formatMoney(currentProduct.price) === formatMoney(parseFloat(priceInput.value) || 0) &&
+            formatInteger(currentProduct.quantity) === formatInteger(parseInt(quantityInput.value, 10) || 0) &&
+            formatMoney(currentProduct.rating) === formatMoney(parseFloat(ratingInput.value) || 0) &&
+            currentCategory === newCategory &&
+            currentCreateDate === newCreateDate &&
+            (currentProduct.description || '') === descriptionInput.value.trim() &&
+            (!imageFile && (newImage || '') === currentImage);
+
+        if (unchanged) {
+            showStatus('No changes detected. Product not updated.', true);
+            return;
+        }
+    }
+
     try {
         const response = await fetch(getApiUrl(productId), getRequestOptions('POST', formData));
         const body = await readJsonResponse(response);
@@ -223,11 +312,14 @@ function addSampleProduct() {
     ratingInput.value = '4.50';
     categoryInput.value = '1';
     imageFileInput.value = '';
-    imageInput.value = 'https://example.com/images/apple-juice.jpg';
+    const sampleUrl = 'https://example.com/images/apple-juice.jpg';
+    imageInput.value = sampleUrl;
     existingImageInput.value = '';
     createDateInput.value = '';
     descriptionInput.value = 'Made from fresh apples. Sweet and refreshing!';
     idInput.value = '';
+    imagePreviewText.textContent = 'Loading preview...';
+    updateImagePreview(sampleUrl);
 }
 
 async function handleTableClick(event) {
@@ -289,6 +381,7 @@ async function editProduct(productId) {
         createDateInput.value = toInputDateTime(product.create_date);
         descriptionInput.value = product.description || '';
         submitButton.textContent = 'Update product';
+        updateImagePreview(product.image || '');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
         showStatus(error.message, false);
