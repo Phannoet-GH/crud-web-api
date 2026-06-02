@@ -22,6 +22,10 @@ const tableBody = document.getElementById('products-table-body');
 const resetButton = document.getElementById('reset-button');
 const sampleButton = document.getElementById('sample-button');
 const refreshButton = document.getElementById('refresh-button');
+const searchForm = document.getElementById('search-form');
+const searchQuery = document.getElementById('search-query');
+const clearSearchButton = document.getElementById('clear-search-button');
+let currentProduct = null;
 
 function showStatus(message, success = true) {
     statusBox.textContent = message;
@@ -157,6 +161,7 @@ function resetForm() {
     existingImageInput.value = '';
     createDateInput.value = '';
     descriptionInput.value = '';
+    currentProduct = null;
     submitButton.textContent = 'Save product';
 }
 
@@ -241,6 +246,27 @@ async function handleTableClick(event) {
     }
 }
 
+async function deleteProduct(productId) {
+    if (!confirm('Delete this product?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(getApiUrl(productId), { method: 'DELETE' });
+        const body = await readJsonResponse(response);
+
+        if (!response.ok) {
+            throw new Error(getErrorMessage(body, 'Failed to delete product'));
+        }
+
+        resetForm();
+        fetchProducts();
+        showStatus('Product deleted successfully.');
+    } catch (error) {
+        showStatus(error.message, false);
+    }
+}
+
 async function editProduct(productId) {
     try {
         const response = await fetch(getApiUrl(productId));
@@ -250,6 +276,7 @@ async function editProduct(productId) {
             throw new Error(getErrorMessage(product, 'Product not found'));
         }
 
+        currentProduct = product;
         idInput.value = product.product_id;
         nameInput.value = product.product_name || '';
         priceInput.value = formatMoney(product.price);
@@ -268,30 +295,58 @@ async function editProduct(productId) {
     }
 }
 
-async function deleteProduct(productId) {
-    if (!confirm('Delete this product?')) {
+async function searchProducts(query) {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+        showStatus('Please enter a search query.', false);
         return;
     }
 
     try {
-        const response = await fetch(getApiUrl(productId), { method: 'DELETE' });
-        const body = await readJsonResponse(response);
+        const url = `${pageFolder}/api.php?path=products/search&q=${encodeURIComponent(trimmedQuery)}`;
+        const response = await fetch(url);
+        const products = await readJsonResponse(response);
 
-        if (!response.ok) {
-            throw new Error(getErrorMessage(body, 'Failed to delete product'));
+        // Check if response is an error message object
+        if (products && products.message && !Array.isArray(products)) {
+            showStatus(products.message, false);
+            renderTable([]);
+            return;
         }
 
-        fetchProducts();
-        showStatus('Product deleted successfully.');
+        if (!response.ok) {
+            throw new Error(getErrorMessage(products, 'Search failed'));
+        }
+
+        if (!Array.isArray(products) || products.length === 0) {
+            renderTable([]);
+            showStatus(`No products found matching "${trimmedQuery}".`);
+            return;
+        }
+
+        renderTable(products);
+        showStatus(`Found ${products.length} product(s).`);
     } catch (error) {
         showStatus(error.message, false);
+        renderTable([]);
     }
+}
+
+function clearSearch() {
+    searchQuery.value = '';
+    fetchProducts();
+    showStatus('Search cleared. Showing all products.');
 }
 
 form.addEventListener('submit', submitForm);
 resetButton.addEventListener('click', resetForm);
 sampleButton.addEventListener('click', addSampleProduct);
 refreshButton.addEventListener('click', fetchProducts);
+searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    searchProducts(searchQuery.value);
+});
+clearSearchButton.addEventListener('click', clearSearch);
 tableBody.addEventListener('click', handleTableClick);
 
 fetchProducts();

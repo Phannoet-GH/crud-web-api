@@ -122,6 +122,50 @@ class ProductController
         return 'uploads/' . $filename;
     }
 
+    public function search()
+    {
+        $query = $_GET['q'] ?? '';
+        if (empty($query)) {
+            Response::json(['message' => 'Search query is required'], 422);
+        }
+
+        $results = $this->service->search($query);
+        Response::json($results);
+    }
+
+    public function listByCharacter()
+    {
+        $character = $_GET['char'] ?? '';
+        if (empty($character)) {
+            Response::json(['message' => 'Character parameter is required'], 422);
+        }
+
+        $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 10;
+        $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
+        $results = $this->service->byCharacter($character[0], $limit, $offset);
+        Response::json($results);
+    }
+
+    public function listPaginated()
+    {
+        $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 10;
+        $offset = isset($_GET['offset']) ? (int) $_GET['offset'] : 0;
+        $results = $this->service->paginate($limit, $offset);
+        Response::json($results);
+    }
+
+    public function listFromId()
+    {
+        $startId = $_GET['start'] ?? '';
+        if (empty($startId) || !is_numeric($startId)) {
+            Response::json(['message' => 'Start ID parameter is required and must be numeric'], 422);
+        }
+
+        $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 10;
+        $results = $this->service->startFrom((int) $startId, $limit);
+        Response::json($results);
+    }
+
     private function readJsonBody()
     {
         $raw = file_get_contents('php://input');
