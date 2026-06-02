@@ -39,4 +39,24 @@ class ProductService
     {
         return $this->product->delete($id);
     }
+
+    public function search($query)
+    {
+        return $this->product->search($query);
+    }
+
+    public function paginate($limit = 10, $offset = 0)
+    {
+        return $this->product->paginate($limit, $offset);
+    }
+
+    public function byCharacter($character, $limit = 10, $offset = 0)
+    {
+        return $this->product->byCharacter($character, $limit, $offset);
+    }
+
+    public function startFrom($startId, $limit = 10)
+    {
+        return $this->product->startFrom($startId, $limit);
+    }
 }

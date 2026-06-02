@@ -20,6 +20,9 @@ const tableBody = document.getElementById('products-table-body');
 const resetButton = document.getElementById('reset-button');
 const sampleButton = document.getElementById('sample-button');
 const refreshButton = document.getElementById('refresh-button');
+const searchForm = document.getElementById('search-form');
+const searchQuery = document.getElementById('search-query');
+const clearSearchButton = document.getElementById('clear-search-button');
 
 function showStatus(message, success = true) {
     statusBox.textContent = message;
@@ -240,30 +243,63 @@ async function editProduct(productId) {
     }
 }
 
-async function deleteProduct(productId) {
-    if (!confirm('Delete this product?')) {
+async function searchProducts(query) {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+        showStatus('Please enter a search query.', false);
         return;
     }
 
     try {
-        const response = await fetch(getApiUrl(productId), { method: 'DELETE' });
-        const body = await readJsonResponse(response);
+        const url = `${pageFolder}/api.php?path=products/search&q=${encodeURIComponent(trimmedQuery)}`;
+        console.log('Searching with URL:', url);
+        
+        const response = await fetch(url);
+        const products = await readJsonResponse(response);
 
-        if (!response.ok) {
-            throw new Error(getErrorMessage(body, 'Failed to delete product'));
+        console.log('Search response:', { status: response.status, data: products });
+
+        // Check if response is an error message object
+        if (products && products.message && !Array.isArray(products)) {
+            showStatus(products.message, false);
+            renderTable([]);
+            return;
         }
 
-        fetchProducts();
-        showStatus('Product deleted successfully.');
+        if (!response.ok) {
+            throw new Error(getErrorMessage(products, 'Search failed'));
+        }
+
+        if (!Array.isArray(products) || products.length === 0) {
+            renderTable([]);
+            showStatus(`No products found matching "${trimmedQuery}".`);
+            return;
+        }
+
+        renderTable(products);
+        showStatus(`Found ${products.length} product(s).`);
     } catch (error) {
+        console.error('Search error:', error);
         showStatus(error.message, false);
+        renderTable([]);
     }
+}
+
+function clearSearch() {
+    searchQuery.value = '';
+    fetchProducts();
+    showStatus('Search cleared. Showing all products.');
 }
 
 form.addEventListener('submit', submitForm);
 resetButton.addEventListener('click', resetForm);
 sampleButton.addEventListener('click', addSampleProduct);
 refreshButton.addEventListener('click', fetchProducts);
+searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    searchProducts(searchQuery.value);
+});
+clearSearchButton.addEventListener('click', clearSearch);
 tableBody.addEventListener('click', handleTableClick);
 
 fetchProducts();
