@@ -108,4 +108,68 @@ class Product
         $statement = $this->pdo->prepare('DELETE FROM products WHERE product_id = :id');
         return $statement->execute(['id' => $id]);
     }
+
+    public function search($query)
+    {
+        $query = trim($query);
+        $searchTerm = '%' . $query . '%';
+        
+        if (is_numeric($query)) {
+            // Search by ID first
+            $statement = $this->pdo->prepare('SELECT * FROM products WHERE product_id = :id LIMIT 1');
+            $statement->execute(['id' => (int) $query]);
+            $product = $statement->fetch(PDO::FETCH_ASSOC);
+            if ($product) {
+                return [$product];
+            }
+        }
+        
+        // Search by name (case-insensitive)
+        $statement = $this->pdo->prepare(
+            'SELECT * FROM products WHERE LOWER(product_name) LIKE LOWER(:name) ORDER BY product_id DESC'
+        );
+        $statement->execute(['name' => $searchTerm]);
+        return $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function paginate($limit = 10, $offset = 0)
+    {
+        $limit = max(1, min((int) $limit, 100));
+        $offset = max(0, (int) $offset);
+        $statement = $this->pdo->prepare(
+            'SELECT * FROM products ORDER BY product_id DESC LIMIT :limit OFFSET :offset'
+        );
+        $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $statement->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $statement->execute();
+        return $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function byCharacter($character, $limit = 10, $offset = 0)
+    {
+        $searchTerm = $character . '%';
+        $limit = max(1, min((int) $limit, 100));
+        $offset = max(0, (int) $offset);
+        $statement = $this->pdo->prepare(
+            'SELECT * FROM products WHERE product_name LIKE :name ORDER BY product_id DESC LIMIT :limit OFFSET :offset'
+        );
+        $statement->bindValue(':name', $searchTerm);
+        $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $statement->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $statement->execute();
+        return $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function startFrom($startId, $limit = 10)
+    {
+        $startId = max(1, (int) $startId);
+        $limit = max(1, min((int) $limit, 100));
+        $statement = $this->pdo->prepare(
+            'SELECT * FROM products WHERE product_id >= :id ORDER BY product_id ASC LIMIT :limit'
+        );
+        $statement->bindValue(':id', $startId, PDO::PARAM_INT);
+        $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+        return $statement->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
 }

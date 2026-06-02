@@ -68,14 +68,38 @@ if (!isset($segments[0]) || $segments[0] !== 'products') {
     Response::json(['message' => 'Not Found'], 404);
 }
 
-$id = isset($segments[1]) ? (int) $segments[1] : null;
+$action = isset($segments[1]) ? $segments[1] : null;
+$id = (is_numeric($action)) ? (int) $action : null;
 
 switch ($method) {
     case 'GET':
-        if ($id === null) {
+        if ($id === null && $action !== null) {
+            // Handle special actions like search, paginate, char, from
+            if ($action === 'search') {
+                $controller->search();
+                break;
+            }
+            if ($action === 'paginate') {
+                $controller->listPaginated();
+                break;
+            }
+            if ($action === 'char') {
+                $controller->listByCharacter();
+                break;
+            }
+            if ($action === 'from') {
+                $controller->listFromId();
+                break;
+            }
+            // If action is not recognized and not numeric, treat as unknown
+            Response::json(['message' => 'Not Found'], 404);
+            break;
+        } elseif ($id === null) {
+            // No ID or action specified - list all products
             $controller->index();
             break;
         }
+        // ID was provided - get single product
         $controller->show($id);
         break;
     case 'POST':

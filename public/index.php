@@ -87,6 +87,20 @@ if (isApiRequest(currentPath())) {
         </section>
 
         <section class="card">
+            <h2>Search products</h2>
+            <form id="search-form">
+                <div>
+                    <label for="search-query">Search by ID or Name</label>
+                    <input id="search-query" type="text" placeholder="Enter product ID or name" />
+                </div>
+                <div class="actions">
+                    <button type="submit" class="primary">Search</button>
+                    <button type="button" id="clear-search-button" class="secondary">Clear search</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card">
             <div class="section-header">
                 <div>
                     <h2>Product list</h2>
