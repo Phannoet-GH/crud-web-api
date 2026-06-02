@@ -66,9 +66,15 @@ if (isApiRequest(currentPath())) {
                     <input id="product-category" type="number" min="0" step="1" placeholder="Category ID" />
                 </div>
                 <div>
-                    <label for="product-image">Image</label>
+                    <label for="product-image-file">Upload Image</label>
+                    <input id="product-image-file" type="file" accept="image/*" />
+                    <small>Choose a local image file or enter an image URL below.</small>
+                </div>
+                <div>
+                    <label for="product-image">Image URL</label>
                     <input id="product-image" type="text" maxlength="100" placeholder="image.jpg or image URL" />
                 </div>
+                <input type="hidden" id="product-image-existing" />
                 <div>
                     <label for="product-create-date">Create Date</label>
                     <input id="product-create-date" type="datetime-local" />

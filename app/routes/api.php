@@ -56,6 +56,13 @@ $pdo->exec(
 $controller = new ProductController(new ProductService(new Product($pdo)));
 
 $method = $_SERVER['REQUEST_METHOD'];
+if ($method === 'POST') {
+    if (isset($_POST['_method'])) {
+        $method = strtoupper((string) $_POST['_method']);
+    } elseif (isset($_GET['_method'])) {
+        $method = strtoupper((string) $_GET['_method']);
+    }
+}
 $path = isset($_GET['path']) ? $_GET['path'] : parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = trim((string) $path, '/');
 $segments = $uri === '' ? [] : explode('/', $uri);

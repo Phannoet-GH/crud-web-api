@@ -12,7 +12,9 @@ const priceInput = document.getElementById('product-price');
 const quantityInput = document.getElementById('product-quantity');
 const ratingInput = document.getElementById('product-rating');
 const categoryInput = document.getElementById('product-category');
+const imageFileInput = document.getElementById('product-image-file');
 const imageInput = document.getElementById('product-image');
+const existingImageInput = document.getElementById('product-image-existing');
 const createDateInput = document.getElementById('product-create-date');
 const descriptionInput = document.getElementById('product-description');
 const statusBox = document.getElementById('status');
@@ -29,7 +31,12 @@ function showStatus(message, success = true) {
 }
 
 function getRequestOptions(method, data) {
-    const options = { method, headers: { 'Content-Type': 'application/json' } };
+    const options = { method };
+    if (data instanceof FormData) {
+        options.body = data;
+        return options;
+    }
+    options.headers = { 'Content-Type': 'application/json' };
     if (data) options.body = JSON.stringify(data);
     return options;
 }
@@ -145,7 +152,9 @@ function resetForm() {
     quantityInput.value = '';
     ratingInput.value = '';
     categoryInput.value = '';
+    imageFileInput.value = '';
     imageInput.value = '';
+    existingImageInput.value = '';
     createDateInput.value = '';
     descriptionInput.value = '';
     submitButton.textContent = 'Save product';
@@ -154,25 +163,40 @@ function resetForm() {
 async function submitForm(event) {
     event.preventDefault();
     const productId = idInput.value.trim();
-    const payload = {
-        product_name: nameInput.value.trim(),
-        price: parseFloat(priceInput.value) || 0,
-        quantity: parseInt(quantityInput.value, 10) || 0,
-        rating: parseFloat(ratingInput.value) || 0,
-        category_id: categoryInput.value.trim() ? parseInt(categoryInput.value, 10) : null,
-        image: imageInput.value.trim() || null,
-        create_date: toMysqlDateTime(createDateInput.value),
-        description: descriptionInput.value.trim(),
-    };
+    const imageFile = imageFileInput.files[0];
+    const imageUrl = imageInput.value.trim();
+    const existingImage = existingImageInput.value || null;
 
-    if (!payload.product_name) {
+    const formData = new FormData();
+    formData.append('product_name', nameInput.value.trim());
+    formData.append('price', parseFloat(priceInput.value) || 0);
+    formData.append('quantity', parseInt(quantityInput.value, 10) || 0);
+    formData.append('rating', parseFloat(ratingInput.value) || 0);
+    formData.append('category_id', categoryInput.value.trim() ? parseInt(categoryInput.value, 10) : '');
+    formData.append('create_date', toMysqlDateTime(createDateInput.value) || '');
+    formData.append('description', descriptionInput.value.trim());
+
+    if (imageFile) {
+        formData.append('image', imageFile);
+    } else if (imageUrl) {
+        formData.append('image', imageUrl);
+    } else if (productId && existingImage) {
+        formData.append('image', existingImage);
+    } else {
+        formData.append('image', '');
+    }
+
+    if (productId) {
+        formData.append('_method', 'PUT');
+    }
+
+    if (!formData.get('product_name')) {
         showStatus('Product name is required.', false);
         return;
     }
 
     try {
-        const method = productId ? 'PUT' : 'POST';
-        const response = await fetch(getApiUrl(productId), getRequestOptions(method, payload));
+        const response = await fetch(getApiUrl(productId), getRequestOptions('POST', formData));
         const body = await readJsonResponse(response);
 
         if (!response.ok) {
@@ -193,7 +217,9 @@ function addSampleProduct() {
     quantityInput.value = '3';
     ratingInput.value = '4.50';
     categoryInput.value = '1';
+    imageFileInput.value = '';
     imageInput.value = 'https://example.com/images/apple-juice.jpg';
+    existingImageInput.value = '';
     createDateInput.value = '';
     descriptionInput.value = 'Made from fresh apples. Sweet and refreshing!';
     idInput.value = '';
@@ -230,7 +256,9 @@ async function editProduct(productId) {
         quantityInput.value = formatInteger(product.quantity);
         ratingInput.value = formatMoney(product.rating);
         categoryInput.value = product.category_id || '';
+        imageFileInput.value = '';
         imageInput.value = product.image || '';
+        existingImageInput.value = product.image || '';
         createDateInput.value = toInputDateTime(product.create_date);
         descriptionInput.value = product.description || '';
         submitButton.textContent = 'Update product';
