@@ -97,13 +97,21 @@ function handleImageUrlChange() {
     }
 }
 
+const apiKeyMeta = document.querySelector('meta[name="api-key"]');
+const AUTH_API_KEY = apiKeyMeta ? apiKeyMeta.content : '';
+
+function getAuthHeaders() {
+    return AUTH_API_KEY ? { 'X-API-KEY': AUTH_API_KEY } : {};
+}
+
 function getRequestOptions(method, data) {
     const options = { method };
     if (data instanceof FormData) {
         options.body = data;
+        options.headers = getAuthHeaders();
         return options;
     }
-    options.headers = { 'Content-Type': 'application/json' };
+    options.headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
     if (data) options.body = JSON.stringify(data);
     return options;
 }
@@ -133,7 +141,7 @@ function getErrorMessage(body, fallbackMessage) {
 
 async function fetchProducts() {
     try {
-        const response = await fetch(getApiUrl());
+        const response = await fetch(getApiUrl(), { headers: getAuthHeaders() });
         const products = await readJsonResponse(response);
 
         if (!response.ok) {
@@ -344,7 +352,7 @@ async function deleteProduct(productId) {
     }
 
     try {
-        const response = await fetch(getApiUrl(productId), { method: 'DELETE' });
+        const response = await fetch(getApiUrl(productId), { method: 'DELETE', headers: getAuthHeaders() });
         const body = await readJsonResponse(response);
 
         if (!response.ok) {
@@ -361,7 +369,7 @@ async function deleteProduct(productId) {
 
 async function editProduct(productId) {
     try {
-        const response = await fetch(getApiUrl(productId));
+        const response = await fetch(getApiUrl(productId), { headers: getAuthHeaders() });
         const product = await readJsonResponse(response);
 
         if (!response.ok) {
@@ -397,7 +405,7 @@ async function searchProducts(query) {
 
     try {
         const url = `${pageFolder}/api.php?path=products/search&q=${encodeURIComponent(trimmedQuery)}`;
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: getAuthHeaders() });
         const products = await readJsonResponse(response);
 
         // Check if response is an error message object

@@ -34,6 +34,11 @@ DB_USERNAME=phannoet
 DB_PASSWORD=3126
 DB_CHARSET=utf8mb4
 API_KEY=
+# Optional Cloudinary storage settings for uploads
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+CLOUDINARY_UPLOAD_FOLDER=crud-products
 ```
 
 3. Start the built-in PHP server using the public router:
@@ -61,3 +66,13 @@ php -S localhost:8000 public/router.php
 - The database name is `sv1112_db` by default.
 - To manage the database with a GUI, use DBForge MySQL or any MySQL client.
 - To enable API key authentication, set `API_KEY` in `.env`.
+
+## Vercel Deployment
+
+This project can be deployed to Vercel using the included `vercel.json` configuration.
+
+- `vercel.json` uses the `@vercel/php` runtime to run PHP files under `public/`.
+- `public/index.php` is the main UI entry point.
+- `public/api.php` is exposed for API requests.
+
+Important note: Vercel functions use ephemeral storage, so uploaded images saved to `public/uploads/` will not persist between function invocations. For real production deployment, use an external file store such as AWS S3, Cloudinary, or another persistent object storage service.

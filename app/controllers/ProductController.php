@@ -66,8 +66,8 @@ class ProductController
         $this->service->update($id, $data);
 
         $newImage = $data['image'] ?? null;
-        if ($existingImage && $existingImage !== $newImage && $this->isLocalUploadedImage((string) $existingImage)) {
-            $this->deleteUploadedImage($existingImage);
+        if ($existingImage && $existingImage !== $newImage) {
+            $this->deleteStoredImage((string) $existingImage);
         }
 
         Response::json($this->service->get($id));
@@ -81,8 +81,8 @@ class ProductController
         }
 
         $existingImage = $existing['image'] ?? null;
-        if ($existingImage && $this->isLocalUploadedImage((string) $existingImage)) {
-            $this->deleteUploadedImage($existingImage);
+        if ($existingImage) {
+            $this->deleteStoredImage((string) $existingImage);
         }
 
         $this->service->delete($id);
@@ -113,6 +113,10 @@ class ProductController
     {
         if (!is_uploaded_file($image['tmp_name'])) {
             Response::json(['message' => 'Invalid uploaded image'], 400);
+        }
+
+        if ($this->isCloudinaryConfigured()) {
+            return $this->uploadToCloudinary($image);
         }
 
         $finfo = new \finfo(FILEINFO_MIME_TYPE);
@@ -147,6 +151,131 @@ class ProductController
     private function isLocalUploadedImage(string $imagePath): bool
     {
         return trim($imagePath) !== '' && strpos($imagePath, 'uploads/') === 0;
+    }
+
+    private function isCloudinaryConfigured(): bool
+    {
+        return getenv('CLOUDINARY_CLOUD_NAME') && getenv('CLOUDINARY_API_KEY') && getenv('CLOUDINARY_API_SECRET');
+    }
+
+    private function uploadToCloudinary(array $image): string
+    {
+        if (!function_exists('curl_init') || !class_exists('CURLFile')) {
+            Response::json(['message' => 'Cloudinary upload requires curl extension'], 500);
+        }
+
+        $cloudName = getenv('CLOUDINARY_CLOUD_NAME');
+        $apiKey = getenv('CLOUDINARY_API_KEY');
+        $apiSecret = getenv('CLOUDINARY_API_SECRET');
+        $folder = getenv('CLOUDINARY_UPLOAD_FOLDER') ?: '';
+        $timestamp = time();
+
+        $params = ['timestamp' => $timestamp];
+        if ($folder !== '') {
+            $params['folder'] = $folder;
+        }
+
+        ksort($params);
+        $signatureString = '';
+        foreach ($params as $key => $value) {
+            $signatureString .= $key . '=' . $value . '&';
+        }
+        $signature = sha1(rtrim($signatureString, '&') . $apiSecret);
+
+        $post = [
+            'file' => new \CURLFile($image['tmp_name'], $image['type'], $image['name']),
+            'api_key' => $apiKey,
+            'timestamp' => $timestamp,
+            'signature' => $signature,
+        ];
+
+        if ($folder !== '') {
+            $post['folder'] = $folder;
+        }
+
+        $url = sprintf('https://api.cloudinary.com/v1_1/%s/image/upload', $cloudName);
+        $curl = curl_init($url);
+        curl_setopt($curl, CURLOPT_POST, true);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $post);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
+        $response = curl_exec($curl);
+
+        if ($response === false) {
+            Response::json(['message' => 'Cloudinary request failed', 'error' => curl_error($curl)], 500);
+        }
+
+        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+
+        $body = json_decode($response, true);
+        if ($httpCode !== 200 || empty($body['secure_url'])) {
+            Response::json(['message' => 'Cloudinary upload failed', 'response' => $body], 500);
+        }
+
+        return $body['secure_url'];
+    }
+
+    private function isCloudinaryUrl(string $imagePath): bool
+    {
+        $cloudName = getenv('CLOUDINARY_CLOUD_NAME');
+        if (!$cloudName) {
+            return false;
+        }
+
+        return strpos($imagePath, 'res.cloudinary.com/' . $cloudName . '/image/upload') !== false;
+    }
+
+    private function deleteStoredImage(string $imagePath): void
+    {
+        if ($this->isLocalUploadedImage($imagePath)) {
+            $filePath = __DIR__ . '/../../public/' . ltrim($imagePath, '/');
+            if (is_file($filePath)) {
+                @unlink($filePath);
+            }
+            return;
+        }
+
+        if ($this->isCloudinaryUrl($imagePath) && $this->isCloudinaryConfigured()) {
+            $this->deleteCloudinaryImage($imagePath);
+        }
+    }
+
+    private function deleteCloudinaryImage(string $imagePath): void
+    {
+        $cloudName = getenv('CLOUDINARY_CLOUD_NAME');
+        $apiKey = getenv('CLOUDINARY_API_KEY');
+        $apiSecret = getenv('CLOUDINARY_API_SECRET');
+
+        if (!$cloudName || !$apiKey || !$apiSecret) {
+            return;
+        }
+
+        $pattern = '/res\.cloudinary\.com\/' . preg_quote($cloudName, '/') . '\/image\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+$/';
+        if (!preg_match($pattern, $imagePath, $matches)) {
+            return;
+        }
+
+        $publicId = $matches[1];
+        $timestamp = time();
+        $params = "public_id={$publicId}&timestamp={$timestamp}";
+        $signature = sha1($params . $apiSecret);
+
+        $post = [
+            'public_id' => $publicId,
+            'api_key' => $apiKey,
+            'timestamp' => $timestamp,
+            'signature' => $signature,
+        ];
+
+        $url = sprintf('https://api.cloudinary.com/v1_1/%s/image/destroy', $cloudName);
+        $curl = curl_init($url);
+        curl_setopt($curl, CURLOPT_POST, true);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $post);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
+        curl_exec($curl);
+        curl_close($curl);
     }
 
     private function deleteUploadedImage(string $imagePath): void
