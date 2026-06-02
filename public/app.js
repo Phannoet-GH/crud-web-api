@@ -23,6 +23,7 @@ const refreshButton = document.getElementById('refresh-button');
 const searchForm = document.getElementById('search-form');
 const searchQuery = document.getElementById('search-query');
 const clearSearchButton = document.getElementById('clear-search-button');
+let currentProduct = null;
 
 function showStatus(message, success = true) {
     statusBox.textContent = message;
@@ -151,6 +152,7 @@ function resetForm() {
     imageInput.value = '';
     createDateInput.value = '';
     descriptionInput.value = '';
+    currentProduct = null;
     submitButton.textContent = 'Save product';
 }
 
@@ -174,6 +176,27 @@ async function submitForm(event) {
     }
 
     try {
+        if (productId && currentProduct) {
+            const currentCreateDate = toInputDateTime(currentProduct.create_date);
+            const currentCategory = currentProduct.category_id === null ? null : String(currentProduct.category_id);
+            const newCategory = payload.category_id === null ? null : String(payload.category_id);
+
+            const unchanged =
+                currentProduct.product_name === payload.product_name &&
+                Number(currentProduct.price) === payload.price &&
+                Number(currentProduct.quantity) === payload.quantity &&
+                Number(currentProduct.rating) === payload.rating &&
+                currentCategory === newCategory &&
+                (currentProduct.image || '') === (payload.image || '') &&
+                currentCreateDate === createDateInput.value &&
+                (currentProduct.description || '') === (payload.description || '');
+
+            if (unchanged) {
+                showStatus('No changes detected. Product not updated.', true);
+                return;
+            }
+        }
+
         const method = productId ? 'PUT' : 'POST';
         const response = await fetch(getApiUrl(productId), getRequestOptions(method, payload));
         const body = await readJsonResponse(response);
@@ -218,6 +241,27 @@ async function handleTableClick(event) {
     }
 }
 
+async function deleteProduct(productId) {
+    if (!confirm('Delete this product?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(getApiUrl(productId), { method: 'DELETE' });
+        const body = await readJsonResponse(response);
+
+        if (!response.ok) {
+            throw new Error(getErrorMessage(body, 'Failed to delete product'));
+        }
+
+        resetForm();
+        fetchProducts();
+        showStatus('Product deleted successfully.');
+    } catch (error) {
+        showStatus(error.message, false);
+    }
+}
+
 async function editProduct(productId) {
     try {
         const response = await fetch(getApiUrl(productId));
@@ -227,6 +271,7 @@ async function editProduct(productId) {
             throw new Error(getErrorMessage(product, 'Product not found'));
         }
 
+        currentProduct = product;
         idInput.value = product.product_id;
         nameInput.value = product.product_name || '';
         priceInput.value = formatMoney(product.price);
@@ -252,12 +297,8 @@ async function searchProducts(query) {
 
     try {
         const url = `${pageFolder}/api.php?path=products/search&q=${encodeURIComponent(trimmedQuery)}`;
-        console.log('Searching with URL:', url);
-        
         const response = await fetch(url);
         const products = await readJsonResponse(response);
-
-        console.log('Search response:', { status: response.status, data: products });
 
         // Check if response is an error message object
         if (products && products.message && !Array.isArray(products)) {
@@ -279,7 +320,6 @@ async function searchProducts(query) {
         renderTable(products);
         showStatus(`Found ${products.length} product(s).`);
     } catch (error) {
-        console.error('Search error:', error);
         showStatus(error.message, false);
         renderTable([]);
     }
